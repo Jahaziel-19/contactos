@@ -1,3 +1,7 @@
+// import Info from "../InfoContacts/Info";
+import { useNavigate } from 'react-router-dom';
+
+
 function Contacts(){
     const contacts = [
         { name: 'Juan Pérez', number: 1 },
@@ -21,15 +25,22 @@ function Contacts(){
         { name: 'Roberto Pérez', number: 19 },
         { name: 'Cristina López', number: 20 }
       ];
-    
+    const navigate = useNavigate();
   const fristLetter = (name) =>{
     return name.slice(0,1);
-  } 
+  }
+
+  const info = (id) =>{
+    navigate(`/contact/${id}`);
+    
+  }
+
     return(
         <div className='bg-custom-gray h-[calc(100%-4rem)] overflow-y-auto  scrollbar-thumb-cyan-400 scrollbar-track-white scrollbar-thin'>
         {
             contacts.map( (person,index) => 
-              (<div key={index} className='bg-custom-white h-1/6 flex items-center pl-6 border-custom border-cyan-500 hover:bg-custom-gray cursor-pointer'> 
+              (
+                <div key={index} onClick={()=>{info(person.number)}} className='bg-custom-white h-1/6 flex items-center pl-6 border-custom border-cyan-500 hover:bg-custom-gray cursor-pointer'> 
                 <div className='bg-gradient-to-r from-indigo-400 to-cyan-400 w-14 h-14 flex justify-center items-center rounded-full text-white text-2xl'>{fristLetter(person.name)}</div>
                 <h2 className='pl-6 text-cyan-500 text-xl'>{person.name}</h2>
               </div>))
