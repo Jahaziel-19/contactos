@@ -59,6 +59,7 @@ const handleChange = async e => {
     }
     setErrors(values => ({...values,general : ''}));
     setCheck(true);
+
   }
 
     return(

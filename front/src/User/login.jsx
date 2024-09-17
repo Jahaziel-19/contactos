@@ -55,28 +55,35 @@ function Login() {
     };
 
     useEffect(() => {
-        if (animation2.isAnimate) {
-            const timer = setTimeout(() => {
-                setAnimation2(prev => ({ ...prev, isAnimate: false }));
-            }, 1000); // La duración de la animación
-
-            return () => clearTimeout(timer);
-        }
+        console.log(animation2);
     }, [animation2.isAnimate]);
 
     return (
         <div className="bg-custom-gray w-screen hide-scrollbar h-full flex">
             <div className="h-full w-full bg-custom-gray flex flex-col items-center justify-center">
-                <div className="h-2/3 w-1/3 bg-custom-gray rounded-3xl shadow-2xl">
+                <div className="h-2/3 w-1/3 bg-custom-gray rounded-3xl shadow-2xl border-indigo-400 border-2">
                     <div className="bg-gradient-to-r from-indigo-400 to-cyan-600 w-2/5 h-14 top-20 left-44 relative rounded-3xl flex">
                         <div
                             onClick={() => animationLoginSingUp('signup')}
-                            className={`w-1/2 h-full bg-white rounded-2xl flex items-center justify-center rounded-br-3xl rounded-tr-3xl ${animation2.isAnimate ? "animation-sing-login" : ""}`}
+                            className={`w-1/2 h-full bg-white rounded-2xl flex hover:cursor-pointer items-center justify-center rounded-br-3xl  rounded-tr-3xl ${animation2.isAnimate && animation2.side === 'signup' ? "animation-sign" : ""}`}
                         >
                             <p className={`text-2xl ${animation2.side === 'signup' ? 'text-gray-500' : 'text-indigo-400'}`}>
-                                {animation2.side === 'signup' ? 'Sign Up' : 'Login'}
+                                Sing Up
                             </p>
+
+                            
                         </div>
+                        <div
+                            onClick={() => animationLoginSingUp('login')}
+                            className={`w-1/2 h-full bg-white rounded-2xl flex hover:cursor-pointer items-center justify-center rounded-bl-3xl opacity-0 rounded-tl-3xl ${animation2.isAnimate && animation2.side === 'signup' ? " opacity-95" : ""}`}
+                        >
+                            <p className={`text-2xl 'text-indigo-400'`}>
+                                Login
+                            </p>
+
+                            
+                        </div>
+                        
                     </div>
                     <form className="gap-16 w-full h-full flex flex-col items-center justify-center" onSubmit={handleSubmit}>
                         <div id="name-box" className="grid">
@@ -91,18 +98,24 @@ function Login() {
                             />
                             {errors.number ? <div className="text-red-500">{errors.number}</div> : null}
                         </div>
+
                         <div id="name-box" className="grid">
-                            <label htmlFor="name" className={animation.isAnimate && animation.label === 'name' ? "animation-label text-indigo-400" : 'opacity-0'}>Name</label>
+                            <label htmlFor="password" className={animation.isAnimate && animation.label === 'password' ? "animation-label text-indigo-400" : 'opacity-0'}>Password</label>
                             <input
-                                name="name"
-                                placeholder='Name'
-                                type="text"
+                                name="password"
+                                placeholder='Password'
+                                type="password"
                                 className="bg-custom-gray border h-10 rounded-3xl text-lg p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 onChange={handleChange}
-                                onFocus={() => { setAnimation({ isAnimate: true, label: 'name' }) }}
+                                onFocus={() => { setAnimation({ isAnimate: true, label: 'password' }) }}
                             />
-                            {errors.name ? <div className="text-red-500">{errors.name}</div> : null}
-                        </div>
+                            </div>
+                            
+
+                        
+
+
+                        
                         <button
                             type="submit"
                             className="w-32 h-10 bg-gradient-to-r from-indigo-400 to-cyan-600 rounded-3xl text-white hover:from-indigo-500 hover:to-cyan-700 hover:text-xl"

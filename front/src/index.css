@@ -46,14 +46,28 @@ input[type="number"]::-webkit-outer-spin-button {
     margin: 0;
 }
 
-.animation-sing-login{
+.animation-sign{
     animation-name: side-to-side;
-    animation-duration: 1s;
+    animation-duration: 0.2s;
     animation-timing-function: linear;
     animation-fill-mode: forwards;
 }
 @keyframes side-to-side{
     to{
         transform: translateX(100%);
+        opacity: 0;
+    }
+
+}
+.animation-login{
+    animation-name: side-to-side2;
+    animation-duration: 0.2s;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+@keyframes side-to-side2{
+    to{
+        transform: translate(-100%);
+        opacity: 0;
     }
 }
