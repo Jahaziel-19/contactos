@@ -1,3 +1,48 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(90deg);
+    }
+}
+
+.rotate-on-hover {
+    display: inline-block; /* Asegura que el ícono se pueda transformar */
+    transition: transform 0.1   s ease;
+}
+
+.rotate-on-hover:hover {
+    animation: rotate 0.1s linear; /* Aplica la animación en hover */
+}
+
+.animation-label{
+    animation-name: label-up;
+    top: 18%;
+    left: 6%;
+    position: absolute;
+    animation-duration: 0.3s;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+@keyframes label-up{
+    to{
+       transform: translateY(-150%) translateX(-30%);
+    }
+}
+
+
+#name-box{
+    position: relative;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+

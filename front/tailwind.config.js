@@ -14,6 +14,7 @@ export default {
       colors: {
         "custom-gray": "#efefef",
         "custom-white": "#f7f7f7",
+        "custom-blue-gradiant" : "gradient-to-r from-indigo-400 to-cyan-400",
       },
     },
   },
