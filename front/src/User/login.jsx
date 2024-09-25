@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import * as yup from 'yup';
 
-function Login() {
+function Login({onLogin}) {
     const [animation, setAnimation] = useState({ isAnimate: false, label: null });
     const [formValues, setFormValues] = useState({
         password: '',
@@ -41,6 +41,7 @@ function Login() {
         }
         setErrors(values => ({ ...values, general: '' }));
         setCheck(true);
+        onLogin();
     };
 
 
@@ -92,3 +93,53 @@ function Login() {
 }
 
 export default Login;
+
+
+// const handleSubmit = async e => {
+//     e.preventDefault();
+//     const { number, password } = formValues;
+
+//     // Validación de errores
+//     if (!number || !password) {
+//         setErrors(values => ({ ...values, general: 'Please fill in all fields.' }));
+//         return;
+//     }
+
+//     try {
+//         // Aquí deberías llamar a tu API para autenticar al usuario
+//         const response = await api.login({ number, password });
+
+//         if (response.success) {
+//             // Almacena el estado de autenticación
+//             onLogin(response.user); // Pasa el usuario autenticado o token
+//         } else {
+//             setErrors(values => ({ ...values, general: response.message }));
+//         }
+//     } catch (error) {
+//         setErrors(values => ({ ...values, general: 'Login failed, please try again.' }));
+//     }
+// };
+
+
+
+
+// function App() {
+//     const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+//     const handleLogin = (user) => {
+//         setIsAuthenticated(true);
+//         // Puedes guardar el usuario en localStorage o contexto
+//     };
+
+//     return (
+//         <Router>
+//             <Routes>
+//                 <Route path="/" element={<Access onLogin={handleLogin} />} />
+//                 <Route path="/contacts" element={<PrivateRoute isAuthenticated={isAuthenticated}><Contacts /></PrivateRoute>} />
+//                 <Route path="/add-contact" element={<PrivateRoute isAuthenticated={isAuthenticated}><AddContact /></PrivateRoute>} />
+//             </Routes>
+//         </Router>
+//     );
+// }
+
+// export default App;
