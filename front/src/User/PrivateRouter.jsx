@@ -1,16 +1,21 @@
 import React from 'react';
-import { Route, Navigate } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from './AuthContext.jsx';
+import Leftbar from '../Leftbar/Leftbar.jsx';
 
-const PrivateRoute = ({ element, ...rest }) => {
-    const { isAuthenticated } = useAuth();
+const PrivateRoute = ({ element }) => {
+  const { isAuthenticated } = useAuth();
 
-    return (
-        <Route
-            {...rest}
-            element={isAuthenticated ? element : <Navigate to="/" />}
-        />
-    );
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <div className='bg-custom-gray border h-screen w-full hide-scrollbar flex'>
+      <Leftbar />
+      {element}
+    </div>
+  );
 };
 
 export default PrivateRoute;

@@ -5,8 +5,10 @@ import {  useState } from 'react';
 import { IoIosAdd } from "react-icons/io";
 import { LuContact } from "react-icons/lu";
 import {  useNavigate } from "react-router-dom";
+import { useAuth } from "../User/AuthContext";
 
 export default function Leftbar(){
+      const {user} = useAuth();
       const Navigate = useNavigate();
       const [selected,setSelected] = useState(
         {
@@ -59,6 +61,9 @@ export default function Leftbar(){
           </div>
           : 
           <div className='hover:w-10 hover:cursor-pointer hover:h-10 w-8 h-8 pt-2 pb-2 flex items-center justify-center'><CiSettings onClick={() => {handleClick({isSelected:true,logo:'settings'})}} onMouseEnter={()=>{animationLogos({isSelected: true, logo: 'settings'})}} onMouseLeave={()=>{animationLogos({isSelected: false, logo: 'settings'})}} className='w-10 h-10' color='white'/></div>   
+        }
+        {
+          <h1>{user}</h1>
         }
 
         </div>  

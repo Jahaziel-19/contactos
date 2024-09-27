@@ -9,11 +9,13 @@ function Register() {
         email: '',
         password: '',
         rpassword: '',  
-        general: ''
     });
     const [errors, setErrors] = useState({});
     const [check, setCheck] = useState(false);
-
+    function removeKeyFromJson(json, key) {
+        const { [key]: _, ...newObj } = json;
+        return newObj; 
+    }
     const schema = yup.object().shape({
         name: yup.string()
             .matches(/^[a-zA-Z]*$/, 'Name cannot contain special characters or numbers.')
@@ -44,17 +46,43 @@ function Register() {
         }
     };
 
-    const handleSubmit = e => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const { name, email, number } = errors;
-        if (name !== '' || email !== '' || number !== '') {
-            setErrors(values => ({ ...values, general: 'Fill well all the fields.' }));
-            return;
+        try {
+            await schema.validate(formValues); 
+
+            const dataToSubmit = removeKeyFromJson(formValues, 'rpassword');
+            console.log(dataToSubmit)
+            await registerData(dataToSubmit);
+        } catch (error) {
+            setErrors(prev => ({ ...prev, general: error.message }));
         }
-        setErrors(values => ({ ...values, general: '' }));
-        setCheck(true);
     };
 
+    
+    const registerData = async data => {
+        try {
+            const response = await fetch(`http://127.0.0.1:5000/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data) 
+            });
+
+        if(!response.ok){
+            const errorResponse = await response.json();
+            console.error('Register failed:', errorResponse.message); 
+            setErrors((prev) => ({ ...prev, general: errorResponse.message || 'Register failed. Please try again.' }));
+            console.log(errors)
+            return;
+        }else{
+            navigate('/');
+        }
+    }catch (e) {
+        console.log(e);
+    }
+    }
 
     return (
                 <div className="h-5/6 w-1/3 bg-custom-gray rounded-3xl shadow-2xl border-indigo-400 border-2">
