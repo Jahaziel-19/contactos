@@ -1,23 +1,32 @@
+#________________________________________________________________________________________________________________________
+#                                                   FLASK   
 from flask import Flask, request, jsonify, redirect, url_for, session, Response
 from flask_pymongo import PyMongo, ObjectId
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+
+import os
+import csv
+import re
+import bcrypt
+
+from io import StringIO
 from config import Config
 from dotenv import load_dotenv
-import os
-import bcrypt
-import csv
-from io import StringIO
 
-app = Flask(__name__)
-app.config.from_object(Config)
-mongo = PyMongo(app)
+
+app = Flask(__name__) # Declaración de la app de flask
+app.config.from_object(Config) # Obtener las configuraciones del proyecto
+
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:5173"}})
 
 
-# contactos de la base de datos
-db_contactos = mongo.db.contactos
-db_users = mongo.db.users
+# Configuración de la base de datos con Mongo (pymongo)
+mongo = PyMongo(app)
+db_users = mongo.db.users # usuarios de la base de datos
+db_contactos = mongo.db.contactos # contactos de la base de datos
+
+
 
 # Configuración de Flask-Login
 login_manager = LoginManager()
@@ -45,8 +54,11 @@ app.config.update(
 )
 
 
+#________________________________________________________________________________________________________________________
+#
+#                                                   API USERS   
+#________________________________________________________________________________________________________________________
 
-######### API USERS ######### 
 # Ruta para el registro de usuarios
 @app.route('/register', methods=['POST'])
 def register():
@@ -96,14 +108,62 @@ def check_auth():
         return jsonify({"authenticated": True}), 200
     return jsonify({"authenticated": False}), 401
 
+# Ruta para obtener un usuario por ID
+@app.route('/users/<user_id>', methods=['GET'])
+@login_required
+def get_user(user_id):
+    try:
+        user = db_users.find_one({"_id": ObjectId(user_id)}, {"password": 0})  # Excluir campo de contraseña
+        if user:
+            user["_id"] = str(user["_id"])  # Convertir ObjectId a string
+            return jsonify(user), 200
+        else:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+    except:
+        return jsonify({"error": "ID de usuario inválido"}), 400
 
+# Ruta para actualizar un usuario por ID
+@app.route('/users/<user_id>', methods=['PUT'])
+@login_required
+def update_user(user_id):
+    try:
+        update_data = request.json
+        if 'password' in update_data:
+            update_data['password'] = bcrypt.hashpw(update_data['password'].encode('utf-8'), bcrypt.gensalt())
 
-######### API CONTACTOS ######### 
+        result = db_users.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
+        if result.matched_count > 0:
+            return jsonify({"message": "Usuario actualizado exitosamente"}), 200
+        else:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+    except:
+        return jsonify({"error": "ID de usuario inválido"}), 400
+
+# Ruta para eliminar un usuario por ID
+@app.route('/users/<user_id>', methods=['DELETE'])
+@login_required
+def delete_user(user_id):
+    try:
+        result = db_users.delete_one({"_id": ObjectId(user_id)})
+        if result.deleted_count > 0:
+            return jsonify({"message": "Usuario eliminado exitosamente"}), 200
+        else:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+    except:
+        return jsonify({"error": "ID de usuario inválido"}), 400
+    
+#________________________________________________________________________________________________________________________
+#
+#                                                   API CONTACTOS   
+#________________________________________________________________________________________________________________________
+
 # Ruta para agregar un contacto
 @app.route('/contactos', methods=['POST'])
 @login_required
 def agregar_contacto():
-    print(current_user.id)
+    if not current_user.id:
+        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
+
     try:
         id = db_contactos.insert_one({
             'nombre': request.json['nombre'],
@@ -116,39 +176,40 @@ def agregar_contacto():
         return jsonify({"error": str(e)}), 500
 
 # Ruta para buscar contactos por nombre, teléfono o correo electrónico
-@app.route('/contactos/buscar', methods=['GET'])
+@app.route('/contactos/buscar/<parametro>', methods=['GET'])
 @login_required
-def buscar_contacto():
+def buscar_contacto(parametro):
+    if not current_user.id:
+        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
     try:
-        # Obtener los parámetros de búsqueda de la URL
-        nombre = request.args.get('nombre')
-        telefono = request.args.get('telefono')
-        email = request.args.get('email')
+        # Crear el filtro inicial para asegurarse de que solo se busque en los contactos del usuario logueado
+        filtro = {"user_id": current_user.id}
 
-        # Crear el filtro de búsqueda
-        filtro = {"user_id": current_user.id}  # Solo buscar entre los contactos del usuario logueado
-
-        if nombre:
-            filtro['nombre'] = {"$regex": nombre, "$options": "i"}  # Búsqueda por nombre (insensible a mayúsculas)
-        if telefono:
-            filtro['telefono'] = {"$regex": telefono, "$options": "i"}  # Búsqueda por teléfono
-        if email:
-            filtro['email'] = {"$regex": email, "$options": "i"}  # Búsqueda por email
+        # Aplicar el parámetro de búsqueda a todos los campos relevantes: nombre, teléfono y email
+        filtro["$or"] = [
+            {"nombre": {"$regex": parametro, "$options": "i"}},
+            {"telefono": {"$regex": parametro, "$options": "i"}},
+            {"email": {"$regex": parametro, "$options": "i"}}
+        ]
 
         # Buscar los contactos que coincidan con el filtro
         contactos = list(db_contactos.find(filtro))
-        
+
         # Convertir ObjectId a string y preparar los datos para la respuesta
         for contacto in contactos:
             contacto['_id'] = str(contacto['_id'])
-        
+
         return jsonify(contactos), 200
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 # Ruta para consultar un contacto
 @app.route('/contacto/<string:id>', methods=['GET'])
+@login_required
 def obtener_contacto(id):
+    if not current_user.id:
+        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
     try:
         contacto = db_contactos.find_one({'_id': ObjectId(id)})
         if contacto:
@@ -165,7 +226,10 @@ def obtener_contacto(id):
 
 # Ruta para actualizar un contacto
 @app.route('/contacto/<string:id>', methods=['PUT'])
+@login_required
 def actualizar_contacto(id):
+    if not current_user.id:
+        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
     updated_contacto = {
         "nombre": request.json['nombre'],
         "telefono": request.json['telefono'],
@@ -179,7 +243,10 @@ def actualizar_contacto(id):
 
 # Ruta para eliminar un contacto
 @app.route('/contacto/<string:id>', methods=['DELETE'])
+@login_required
 def eliminar_contacto(id):
+    if not current_user.id:
+        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
     result = db_contactos.delete_one({"_id": ObjectId(id)})
     if result.deleted_count > 0:
         return jsonify({'msg': 'Contacto eliminado'})
@@ -190,6 +257,8 @@ def eliminar_contacto(id):
 @app.route('/contactos/export/json', methods=['GET'])
 @login_required
 def export_contactos_json():
+    if not current_user.id:
+        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
     try:
         # Obtener los contactos del usuario logueado
         contactos = list(db_contactos.find({"user_id": current_user.id}))
@@ -204,6 +273,8 @@ def export_contactos_json():
 @app.route('/contactos/export/csv', methods=['GET'])
 @login_required
 def export_contactos_csv():
+    if not current_user.id:
+        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
     try:
         # Obtener los contactos del usuario logueado
         contactos = list(db_contactos.find({"user_id": current_user.id}))
@@ -223,6 +294,8 @@ def export_contactos_csv():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
+#________________________________________________________________________________________________________________________
+#                                                   ARRANQUE DE APLICACIÓN  
+#________________________________________________________________________________________________________________________
 if __name__ == '__main__':
     app.run(debug=True)
