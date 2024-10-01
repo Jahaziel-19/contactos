@@ -106,7 +106,8 @@ def logout():
 def check_auth():
     if current_user.is_authenticated:
         return jsonify({"authenticated": True}), 200
-    return jsonify({"authenticated": False}), 401
+    else
+        return jsonify({"authenticated": False}), 401
 
 # Ruta para obtener un usuario por ID
 @app.route('/users/<user_id>', methods=['GET'])
