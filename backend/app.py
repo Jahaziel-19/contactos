@@ -2,7 +2,7 @@
 #                                                   FLASK   
 from flask import Flask, request, jsonify, redirect, url_for, session, Response
 from flask_pymongo import PyMongo, ObjectId
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
 import os
@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 app = Flask(__name__) # Declaración de la app de flask
 app.config.from_object(Config) # Obtener las configuraciones del proyecto
 
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:5173"}}) # Especifica la recepcion única de peticiones del puerto 5173 con React
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://127.0.0.1:5173"}}) # Especifica la recepcion única de peticiones del puerto 5173 con React
 
 
 # Configuración de la base de datos con Mongo (pymongo)
@@ -48,7 +48,7 @@ def load_user(user_id):
 
 
 app.config.update(
-    SESSION_COOKIE_HTTPONLY=False,  # Permitir que JS acceda a las cookies si es necesario
+    SESSION_COOKIE_HTTPONLY=True,  # Permitir que JS acceda a las cookies si es necesario
     SESSION_COOKIE_SAMESITE="None", # Permitir cookies cross-site
     SESSION_COOKIE_SECURE=False  # Para pruebas locales
 )
@@ -61,6 +61,7 @@ app.config.update(
 
 # Ruta para el registro de usuarios
 @app.route('/register', methods=['POST'])
+@cross_origin()
 def register():
     username = request.json['username']
     phone_number = request.json['phone_number']
@@ -83,6 +84,7 @@ def register():
 
 # Ruta para el inicio de sesión
 @app.route('/login', methods=['POST'])
+@cross_origin()
 def login():
     phone_number = request.json['phone_number']
     password = request.json['password'].encode('utf-8')
@@ -128,16 +130,46 @@ def get_user(user_id):
 def update_user(user_id):
     try:
         update_data = request.json
+
+        # Verificar si se quiere actualizar el número de teléfono
+        if 'phone_number' in update_data:
+            nuevo_numero = update_data['phone_number']
+
+            # Buscar un usuario que tenga ese número y que no sea el usuario que se está actualizando
+            usuario_existente = db_users.find_one({"phone_number": nuevo_numero, "_id": {"$ne": ObjectId(user_id)}})
+
+            if usuario_existente:
+                return jsonify({"error": "El número de teléfono ya está en uso por otro usuario"}), 400
+
+        # Si se incluye contraseña, la encriptamos antes de actualizar
         if 'password' in update_data:
             update_data['password'] = bcrypt.hashpw(update_data['password'].encode('utf-8'), bcrypt.gensalt())
 
+        # Actualizar el usuario con los nuevos datos
         result = db_users.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
         if result.matched_count > 0:
             return jsonify({"message": "Usuario actualizado exitosamente"}), 200
         else:
             return jsonify({"error": "Usuario no encontrado"}), 404
-    except:
-        return jsonify({"error": "ID de usuario inválido"}), 400
+    except Exception as e:
+        return jsonify({"error": "ID de usuario inválido o error en la operación: " + str(e)}), 400
+
+
+# Ruta para obtener todos los usuarios
+@app.route('/users', methods=['GET'])
+def obtener_todos_usuarios():
+    try:
+        # Obtener todos los usuarios de la colección, excluyendo la contraseña
+        usuarios = list(db_users.find({}, {"password": 0}))
+
+        # Convertir ObjectId a string para cada usuario
+        for usuario in usuarios:
+            usuario['_id'] = str(usuario['_id'])
+
+        return jsonify(usuarios), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # Ruta para eliminar un usuario por ID
 @app.route('/users/<user_id>', methods=['DELETE'])
@@ -204,7 +236,7 @@ def buscar_contacto(parametro):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Ruta para consultar un contacto
+# Ruta para consultar un contacto por ID
 @app.route('/contacto/<string:id>', methods=['GET'])
 @login_required
 def obtener_contacto(id):
@@ -223,6 +255,27 @@ def obtener_contacto(id):
             return jsonify({"error": "Contacto no encontrado"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# Ruta para obtener todos los contactos de un usuario logueado
+@app.route('/contactos', methods=['GET'])
+@login_required
+def obtener_contactos_usuario():
+    if not current_user.id:
+        return jsonify({"Error":"Inicia sesión para que puedas ver tus contactos"}), 401
+
+    try:
+        # Obtener todos los contactos del usuario logueado
+        contactos = list(db_contactos.find({"user_id": current_user.id}))
+
+        # Convertir ObjectId a string para que sea serializable en JSON
+        for contacto in contactos:
+            contacto['_id'] = str(contacto['_id'])
+
+        # Retornar los contactos en formato JSON
+        return jsonify(contactos), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # Ruta para actualizar un contacto
 @app.route('/contacto/<string:id>', methods=['PUT'])
