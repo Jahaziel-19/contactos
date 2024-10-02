@@ -8,6 +8,7 @@ import NotFound from './User/NotFound.jsx';
 import PrivateRoute from './User/PrivateRouter.jsx'; 
 
 function App() {
+  
   return (
     <AuthProvider>
       <Router>

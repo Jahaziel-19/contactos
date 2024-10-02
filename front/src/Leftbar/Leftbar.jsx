@@ -8,7 +8,7 @@ import {  useNavigate } from "react-router-dom";
 import { useAuth } from "../User/AuthContext";
 
 export default function Leftbar(){
-      const {user} = useAuth();
+      const {user, logout} = useAuth();
       const Navigate = useNavigate();
       const [selected,setSelected] = useState(
         {
@@ -28,6 +28,12 @@ export default function Leftbar(){
         const animationLogos = obj => {
           console.log(obj);
         }
+      const handleTest = () =>{
+        console.log(user);
+      }
+      const dataUser = () =>{
+
+      }
     return (
         <div className='hide-scrollbar h-full bg-indigo-400 w-20 rounded-xl'>
         <div className='flex flex-col gap-8 items-center pt-1'>
@@ -63,9 +69,17 @@ export default function Leftbar(){
           <div className='hover:w-10 hover:cursor-pointer hover:h-10 w-8 h-8 pt-2 pb-2 flex items-center justify-center'><CiSettings onClick={() => {handleClick({isSelected:true,logo:'settings'})}} onMouseEnter={()=>{animationLogos({isSelected: true, logo: 'settings'})}} onMouseLeave={()=>{animationLogos({isSelected: false, logo: 'settings'})}} className='w-10 h-10' color='white'/></div>   
         }
         {
-          <h1>{user}</h1>
+          <h1 
+          onClick={handleTest}
+          className="bg-white w-8 h-8 text-black">
+            {user}
+          </h1>
         }
+        {
+          <div onClick={logout} className="w-8 h-8 bg-white">
 
+          </div>
+        }
         </div>  
         
       </div>

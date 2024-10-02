@@ -9,7 +9,6 @@ const [animation,setAnimation] = useState({isAnimate:false,label:null});
     name: '',
     number: '',
     email: '',
-    general:''
   })
 const [errors,setErrors] = useState({
 });
@@ -48,7 +47,25 @@ const handleChange = async e => {
     console.log(errors);
     console.log(formValues);
   }
-
+  const sendData = async json =>{
+    try{
+      const response = await fetch('http://localhost:5000/contactos',{
+        method: 'POST',
+        headers:{
+          'Content-Type' : 'application/json',
+        },
+        body: JSON.stringify(json) 
+      });
+      
+      if(!response.ok){
+        console.log(response.status);
+      }
+      console.log('contenido enviado con exito');
+    }catch (e){
+      console.log(e);
+    }
+    
+  }
   const handleSubmit = e =>{
     e.preventDefault();
     const {name,email,number} = errors;
@@ -59,7 +76,7 @@ const handleChange = async e => {
     }
     setErrors(values => ({...values,general : ''}));
     setCheck(true);
-
+    sendData(formValues);
   }
 
     return(
@@ -72,8 +89,8 @@ const handleChange = async e => {
             <div className="h-3/4 w-3/4 bg-custom-gray">
               <form className="gap-10 w-full h-full flex flex-col items-center justify-center">
                 <div id="name-box" className="grid ">
-                  <label htmlFor="name" className={animation.isAnimate && animation.label === 'name' ? "animation-label text-indigo-400" : 'opacity-0'}>Name</label>
-                  <input name="name" placeholder='Name' type="text" className="bg-custom-gray border h-10 rounded-3xl text-lg p-4   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" onChange={handleChange} onFocus={()=>{onAnimation({isAnimate:true,label:'name'})}} />
+                  <label htmlFor="name" className={animation.isAnimate && animation.label === 'name' ? 'animation-label text-indigo-400' : 'opacity-0'}>Name</label>
+                  <input onChange={handleChange} name="name" placeholder='Name' type="text" className="bg-custom-gray border h-10 rounded-3xl text-lg p-4   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"  onFocus={()=>{onAnimation({isAnimate:true,label:'name'})}} />
                   {errors.name ? <div className="text-red-500 ">{errors.name}</div> : null}
                 </div>
                 <div id="name-box" className="grid">
@@ -87,7 +104,7 @@ const handleChange = async e => {
                 <input onChange={handleChange} name="email" placeholder='Email' type="text" className="bg-custom-gray border h-10 rounded-3xl text-lg p-4  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 " onFocus={()=>{onAnimation({isAnimate:true,label:'email'})}} />
                 {errors.email && <div className="text-red-500 ">{errors.email}</div>}
                 </div>
-                <button type="submit" className="w-32 h-10 bg-gradient-to-r from-indigo-400 to-cyan-600 rounded-3xl text-white hover:from-indigo-500 hover:to-cyan-700 hover:text-xl" onClick={handleSubmit}>Add</button>
+                <button onClick={handleSubmit} type="submit" className="w-32 h-10 bg-gradient-to-r from-indigo-400 to-cyan-600 rounded-3xl text-white hover:from-indigo-500 hover:to-cyan-700 hover:text-xl" >Add</button>
                 {errors.general ? <div className="text-red-500 ">{errors.general}</div> : check ? <div className="text-green-500 ">Contact added successfully.</div> : null}              
                 </form>
             </div>
