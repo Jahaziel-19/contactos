@@ -48,7 +48,7 @@ def load_user(user_id):
 
 
 app.config.update(
-    SESSION_COOKIE_HTTPONLY=True,  # Permitir que JS acceda a las cookies si es necesario
+    SESSION_COOKIE_HTTPONLY=False,  # Permitir que JS acceda a las cookies si es necesario
     SESSION_COOKIE_SAMESITE="None", # Permitir cookies cross-site
     SESSION_COOKIE_SECURE=False  # Para pruebas locales
 )
