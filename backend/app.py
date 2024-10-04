@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 app = Flask(__name__) # Declaración de la app de flask
 app.config.from_object(Config) # Obtener las configuraciones del proyecto
 
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://127.0.0.1:5173"}}) # Especifica la recepcion única de peticiones del puerto 5173 con React
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:5173"}}) # Especifica la recepcion única de peticiones del puerto 5173 con React
 
 
 # Configuración de la base de datos con Mongo (pymongo)
