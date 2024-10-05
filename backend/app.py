@@ -18,7 +18,8 @@ from dotenv import load_dotenv
 app = Flask(__name__) # Declaración de la app de flask
 app.config.from_object(Config) # Obtener las configuraciones del proyecto
 
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:5173"}}) # Especifica la recepcion única de peticiones del puerto 5173 con React
+#CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["http://127.0.0.1:5173", "http://localhost:5173"], "allow_headers":"*"}}) # Especifica la recepcion única de peticiones del puerto 5173 con React
 
 
 # Configuración de la base de datos con Mongo (pymongo)
@@ -48,9 +49,9 @@ def load_user(user_id):
 
 
 app.config.update(
-    SESSION_COOKIE_HTTPONLY=False,  # Permitir que JS acceda a las cookies si es necesario
-    SESSION_COOKIE_SAMESITE="None", # Permitir cookies cross-site
-    SESSION_COOKIE_SECURE=False  # Para pruebas locales
+    SESSION_COOKIE_HTTPONLY=True,  # Asegura que solo se acceda a las cookies a través de HTTP(S)
+    SESSION_COOKIE_SAMESITE="None", # Permite cookies cross-site para asegurar la autenticación en diferentes dominios
+    SESSION_COOKIE_SECURE=False  # Desactiva el uso seguro para desarrollo local (HTTPS)
 )
 
 
@@ -59,41 +60,81 @@ app.config.update(
 #                                                   API USERS   
 #________________________________________________________________________________________________________________________
 
-# Ruta para el registro de usuarios
+@cross_origin(supports_credentials=True)
 @app.route('/register', methods=['POST'])
-@cross_origin()
 def register():
-    username = request.json['username']
-    phone_number = request.json['phone_number']
-    email = request.json['email']
-    password = request.json['password'].encode('utf-8')  # Codificar el password
-    hashed_password = bcrypt.hashpw(password, bcrypt.gensalt())  # Hashear el password
+    # Verificar si la solicitud tiene el tipo de contenido correcto
+    if not request.is_json:
+        print("Error: Tipo de contenido no es application/json")
+        return jsonify({"error": "El tipo de contenido debe ser application/json"}), 400
+    
+    # Intentar cargar el contenido JSON
+    try:
+        data = request.get_json()
+        #print("Datos recibidos en el servidor:", data)
+    except Exception as e:
+        print(f"Error al procesar el JSON: {str(e)}")
+        return jsonify({"error": f"Error al procesar JSON: {str(e)}"}), 400
+
+    # Extraer los datos esperados
+    username = data.get('name')
+    phone_number = data.get('number')
+    email = data.get('email')
+    password = data.get('password')
+
+    # Verificar formato del correo
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        return jsonify({"error": "El formato del correo no es válido"}), 400
+    
+    if not phone_number.isdigit():
+        return jsonify({"error": "El número de teléfono debe contener solo dígitos"}), 400
+
+
+    # Verificar si algún campo está vacío o no fue enviado
+    if not all([username, phone_number, email, password]):
+        print("Error: Todos los campos son requeridos.")
+        return jsonify({"error": "Todos los campos son requeridos"}), 400
+
+    # Codificar y hashear la contraseña
+    password = password.encode('utf-8')  
+    hashed_password = bcrypt.hashpw(password, bcrypt.gensalt())  
 
     # Verificar si el usuario ya existe
     if db_users.find_one({"phone_number": phone_number}):
+        print(f"Error: Ya existe un usuario con ese número {phone_number}")
         return jsonify({"error": "Ya existe un usuario con ese número"}), 400
 
-    # Crear nuevo usuario
-    db_users.insert_one({
-        "username": username,
-        "phone_number":phone_number,
-        "email":email,
-        "password": hashed_password
-    })
-    return jsonify({"message": "Usuario registrado exitosamente"}), 201
+    # Crear nuevo usuario en la base de datos
+    try:
+        db_users.insert_one({
+            "username": username,
+            "phone_number": phone_number,
+            "email": email,
+            "password": hashed_password
+        })
+        print(f"Usuario registrado exitosamente: {username}")
+        return jsonify({"message": "Usuario registrado exitosamente"}), 201
+    except Exception as db_error:
+        print(f"Error al insertar en la base de datos: {str(db_error)}")
+        return jsonify({"error": f"Error al registrar usuario: {str(db_error)}"}), 500
 
 # Ruta para el inicio de sesión
-@app.route('/login', methods=['POST'])
-@cross_origin()
+@cross_origin
+@app.route('/login', methods=['POST']) 
 def login():
     phone_number = request.json['phone_number']
     password = request.json['password'].encode('utf-8')
-
+    
+    if not phone_number.isdigit():
+        return jsonify({"error": "El número de teléfono debe contener solo dígitos"}), 400
+    
     user = db_users.find_one({"phone_number": phone_number})
     if user and bcrypt.checkpw(password, user['password']):
         user_obj = User(str(user['_id']))  # Crear objeto User
         login_user(user_obj)  # Iniciar sesión
-        return jsonify({"message": "Inicio de sesión exitoso"}), 200
+        print(f'Authenticated: {current_user.is_authenticated}')
+        print(f"Inicio de sesión exitoso: {user['username']}")
+        return jsonify({"message": "Inicio de sesión exitoso", "user": {"id": str(user['_id']), "username": user['username'], "email": user['email']}}), 200
     return jsonify({"error": "Credenciales inválidas"}), 401
 
 # Ruta para cerrar sesión
@@ -104,10 +145,12 @@ def logout():
     return jsonify({"message": "Cierre de sesión exitoso"}), 200
 
 # Ruta para verificar si el usuario está autenticado
+@cross_origin
 @app.route('/auth/check', methods=['GET'])
 def check_auth():
+    print(f"Usuario actual: {current_user}")
     if current_user.is_authenticated:
-        return jsonify({"authenticated  ": True}), 200
+        return jsonify({"authenticated": True}), 200
     else:
         return jsonify({"authenticated": False}), 401
 
@@ -154,7 +197,6 @@ def update_user(user_id):
             return jsonify({"error": "Usuario no encontrado"}), 404
     except Exception as e:
         return jsonify({"error": "ID de usuario inválido o error en la operación: " + str(e)}), 400
-
 
 # Ruta para obtener todos los usuarios
 @app.route('/users', methods=['GET'])
@@ -284,6 +326,11 @@ def obtener_contactos_usuario():
 def actualizar_contacto(id):
     if not current_user.id:
         return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
+    
+    contacto_existente = db_contactos.find_one({"_id": ObjectId(id), "user_id": current_user.id})
+    if not contacto_existente:
+        return jsonify({"error": "No se encontró el contacto o no tienes permiso para actualizarlo"}), 404
+
     updated_contacto = {
         "nombre": request.json['nombre'],
         "telefono": request.json['telefono'],
@@ -316,6 +363,9 @@ def export_contactos_json():
     try:
         # Obtener los contactos del usuario logueado
         contactos = list(db_contactos.find({"user_id": current_user.id}))
+        if not contactos:
+            return jsonify({"message": "No tienes contactos para exportar"}), 204
+
         # Convertir ObjectId a string para que sea serializable en JSON
         for contacto in contactos:
             contacto['_id'] = str(contacto['_id'])
@@ -332,6 +382,8 @@ def export_contactos_csv():
     try:
         # Obtener los contactos del usuario logueado
         contactos = list(db_contactos.find({"user_id": current_user.id}))
+        if not contactos:
+            return jsonify({"message": "No tienes contactos para exportar"}), 204
         
         # Crear el archivo CSV en memoria
         output = StringIO()
