@@ -4,6 +4,8 @@ from flask import Flask, request, jsonify, redirect, url_for, session, Response
 from flask_pymongo import PyMongo, ObjectId
 from flask_cors import CORS, cross_origin
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask import session
+from flask_session import Session
 
 import os
 import csv
@@ -21,6 +23,11 @@ app.config.from_object(Config) # Obtener las configuraciones del proyecto
 #CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["http://127.0.0.1:5173", "http://localhost:5173"], "allow_headers":"*"}}) # Especifica la recepcion única de peticiones del puerto 5173 con React
 
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,  # Asegura que solo se acceda a las cookies a través de HTTP(S)
+    SESSION_COOKIE_SAMESITE="None", # Permite cookies cross-site para asegurar la autenticación en diferentes dominios
+    SESSION_COOKIE_SECURE=False  # Desactiva el uso seguro para desarrollo local (HTTPS)
+)
 
 # Configuración de la base de datos con Mongo (pymongo)
 mongo = PyMongo(app)
@@ -28,6 +35,7 @@ db_users = mongo.db.users # usuarios de la base de datos
 db_contactos = mongo.db.contactos # contactos de la base de datos
 
 
+Session(app)
 
 # Configuración de Flask-Login
 login_manager = LoginManager()
@@ -46,13 +54,6 @@ def load_user(user_id):
     if user:
         return User(user_id)
     return None
-
-
-app.config.update(
-    SESSION_COOKIE_HTTPONLY=True,  # Asegura que solo se acceda a las cookies a través de HTTP(S)
-    SESSION_COOKIE_SAMESITE="None", # Permite cookies cross-site para asegurar la autenticación en diferentes dominios
-    SESSION_COOKIE_SECURE=False  # Desactiva el uso seguro para desarrollo local (HTTPS)
-)
 
 
 #________________________________________________________________________________________________________________________
