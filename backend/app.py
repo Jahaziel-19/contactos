@@ -20,15 +20,14 @@ from dotenv import load_dotenv
 app = Flask(__name__) # Declaración de la app de flask
 app.config.from_object(Config) # Obtener las configuraciones del proyecto
 
-#CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": ["http://127.0.0.1:5173", "http://localhost:5173"], "allow_headers":"*"}}) # Especifica la recepcion única de peticiones del puerto 5173 con React
-
+CORS(app, origins='*') #, supports_credentials=True , resources={r"/*": {"origins": ["http://127.0.0.1:5173", "http://localhost:5173"], "allow_headers":"*"}}
+'''
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,  # Asegura que solo se acceda a las cookies a través de HTTP(S)
-    SESSION_COOKIE_SAMESITE="None", # Permite cookies cross-site para asegurar la autenticación en diferentes dominios
+    SESSION_COOKIE_SAMESITE='None',
     SESSION_COOKIE_SECURE=False  # Desactiva el uso seguro para desarrollo local (HTTPS)
 )
-
+'''
 # Configuración de la base de datos con Mongo (pymongo)
 mongo = PyMongo(app)
 db_users = mongo.db.users # usuarios de la base de datos
@@ -120,7 +119,7 @@ def register():
         return jsonify({"error": f"Error al registrar usuario: {str(db_error)}"}), 500
 
 # Ruta para el inicio de sesión
-@cross_origin
+@cross_origin(supports_credentials=True)
 @app.route('/login', methods=['POST']) 
 def login():
     phone_number = request.json['phone_number']
@@ -132,11 +131,12 @@ def login():
     user = db_users.find_one({"phone_number": phone_number})
     if user and bcrypt.checkpw(password, user['password']):
         user_obj = User(str(user['_id']))  # Crear objeto User
-        login_user(user_obj)  # Iniciar sesión
+        login_user(user_obj, remember=True)  # Iniciar sesión con remember para que dure más allá de la sesión
         print(f'Authenticated: {current_user.is_authenticated}')
         print(f"Inicio de sesión exitoso: {user['username']}")
         return jsonify({"message": "Inicio de sesión exitoso", "user": {"id": str(user['_id']), "username": user['username'], "email": user['email']}}), 200
     return jsonify({"error": "Credenciales inválidas"}), 401
+
 
 # Ruta para cerrar sesión
 @app.route('/logout', methods=['POST'])
@@ -145,9 +145,8 @@ def logout():
     logout_user()  # Cerrar sesión
     return jsonify({"message": "Cierre de sesión exitoso"}), 200
 
-# Ruta para verificar si el usuario está autenticado
-@cross_origin
 @app.route('/auth/check', methods=['GET'])
+@cross_origin(supports_credentials=True)
 def check_auth():
     print(f"Usuario actual: {current_user}")
     if current_user.is_authenticated:
