@@ -11,10 +11,12 @@ import os
 import csv
 import re
 import bcrypt
+import jwt
+import datetime
 
 from io import StringIO
 from config import Config
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
 
 app = Flask(__name__) # Declaración de la app de flask
@@ -132,9 +134,16 @@ def login():
     if user and bcrypt.checkpw(password, user['password']):
         user_obj = User(str(user['_id']))  # Crear objeto User
         login_user(user_obj, remember=True)  # Iniciar sesión con remember para que dure más allá de la sesión
-        print(f'Authenticated: {current_user.is_authenticated}')
+
+        # Generar el token
+        token = jwt.encode({
+            'user_id': str(user['_id']),
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)  # Expira en 1 día
+        }, app.config['SECRET_KEY'], algorithm='HS256')
+
         print(f"Inicio de sesión exitoso: {user['username']}")
-        return jsonify({"message": "Inicio de sesión exitoso", "user": {"id": str(user['_id']), "username": user['username'], "email": user['email']}}), 200
+        return jsonify({"message": "Inicio de sesión exitoso", "token": token}), 200
+
     return jsonify({"error": "Credenciales inválidas"}), 401
 
 
@@ -145,8 +154,8 @@ def logout():
     logout_user()  # Cerrar sesión
     return jsonify({"message": "Cierre de sesión exitoso"}), 200
 
-@app.route('/auth/check', methods=['GET'])
 @cross_origin(supports_credentials=True)
+@app.route('/auth/check', methods=['GET'])
 def check_auth():
     print(f"Usuario actual: {current_user}")
     if current_user.is_authenticated:
