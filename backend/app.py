@@ -3,15 +3,16 @@
 from flask import Flask, request, jsonify, redirect, url_for, session, Response
 from flask_pymongo import PyMongo, ObjectId
 from flask_cors import CORS, cross_origin
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from flask import session
-from flask_session import Session
+# jwt
+from flask_jwt_extended import create_access_token
+from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import jwt_required
+from flask_jwt_extended import JWTManager
 
 import os
 import csv
 import re
 import bcrypt
-import jwt
 import datetime
 
 from io import StringIO
@@ -23,6 +24,11 @@ app = Flask(__name__) # Declaración de la app de flask
 app.config.from_object(Config) # Obtener las configuraciones del proyecto
 
 CORS(app, origins='*') #, supports_credentials=True , resources={r"/*": {"origins": ["http://127.0.0.1:5173", "http://localhost:5173"], "allow_headers":"*"}}
+
+#jwt token
+
+jwt = JWTManager(app)
+
 '''
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,  # Asegura que solo se acceda a las cookies a través de HTTP(S)
@@ -36,25 +42,15 @@ db_users = mongo.db.users # usuarios de la base de datos
 db_contactos = mongo.db.contactos # contactos de la base de datos
 
 
-Session(app)
+# Cargar usuario JWT
+@jwt.user_identity_loader
+def user_identity_lookup(user):
+    return user
 
-# Configuración de Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
-
-# Modelo de usuario
-class User(UserMixin):
-    def __init__(self, id):
-        self.id = id
-
-# Cargar usuario
-@login_manager.user_loader
-def load_user(user_id):
-    user = db_users.find_one({"_id": ObjectId(user_id)})
-    if user:
-        return User(user_id)
-    return None
+# Serialziar documentos
+def serialize_doc(doc):
+    doc['_id'] = str(doc['_id'])
+    return doc
 
 
 #________________________________________________________________________________________________________________________
@@ -124,48 +120,36 @@ def register():
 @cross_origin(supports_credentials=True)
 @app.route('/login', methods=['POST']) 
 def login():
-    phone_number = request.json['phone_number']
-    password = request.json['password'].encode('utf-8')
-    
-    if not phone_number.isdigit():
-        return jsonify({"error": "El número de teléfono debe contener solo dígitos"}), 400
-    
-    user = db_users.find_one({"phone_number": phone_number})
-    if user and bcrypt.checkpw(password, user['password']):
-        user_obj = User(str(user['_id']))  # Crear objeto User
-        login_user(user_obj, remember=True)  # Iniciar sesión con remember para que dure más allá de la sesión
+    phone_number = request.json.get('phone_number')
+    password = request.json.get('password').encode('utf-8')
 
-        # Generar el token
-        token = jwt.encode({
-            'user_id': str(user['_id']),
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)  # Expira en 1 día
-        }, app.config['SECRET_KEY'], algorithm='HS256')
+    if not phone_number or not password:
+        return jsonify({"error": "Credenciales incompletas"}), 400
+
+    user = db_users.find_one({"phone_number": phone_number})
+
+    if user and bcrypt.checkpw(password, user['password']):
+        # Generar un token JWT con el ID del usuario
+        access_token = create_access_token(identity=str(user['_id']))
 
         print(f"Inicio de sesión exitoso: {user['username']}")
-        return jsonify({"message": "Inicio de sesión exitoso", "token": token}), 200
+        return jsonify(access_token=access_token), 200
 
     return jsonify({"error": "Credenciales inválidas"}), 401
 
 
-# Ruta para cerrar sesión
-@app.route('/logout', methods=['POST'])
-@login_required
-def logout():
-    logout_user()  # Cerrar sesión
-    return jsonify({"message": "Cierre de sesión exitoso"}), 200
-
+# Verificar la autenticacion del usuario
 @cross_origin(supports_credentials=True)
 @app.route('/auth/check', methods=['GET'])
+@jwt_required()
 def check_auth():
-    print(f"Usuario actual: {current_user}")
-    if current_user.is_authenticated:
-        return jsonify({"authenticated": True}), 200
-    else:
-        return jsonify({"authenticated": False}), 401
+    current_user_id = get_jwt_identity()
+    return jsonify(logged_in_as=current_user_id), 200
 
+    
 # Ruta para obtener un usuario por ID
 @app.route('/users/<user_id>', methods=['GET'])
-@login_required
+@jwt_required()
 def get_user(user_id):
     try:
         user = db_users.find_one({"_id": ObjectId(user_id)}, {"password": 0})  # Excluir campo de contraseña
@@ -177,12 +161,18 @@ def get_user(user_id):
     except:
         return jsonify({"error": "ID de usuario inválido"}), 400
 
+
 # Ruta para actualizar un usuario por ID
 @app.route('/users/<user_id>', methods=['PUT'])
-@login_required
+@jwt_required()
 def update_user(user_id):
     try:
         update_data = request.json
+        allowed_fields = {'username', 'phone_number', 'email', 'password'}
+        '''
+        if not set(update_data.keys()).issubset(allowed_fields):
+            return jsonify({"error": "Campos no válidos en la solicitud"}), 400
+        '''
 
         # Verificar si se quiere actualizar el número de teléfono
         if 'phone_number' in update_data:
@@ -225,7 +215,7 @@ def obtener_todos_usuarios():
 
 # Ruta para eliminar un usuario por ID
 @app.route('/users/<user_id>', methods=['DELETE'])
-@login_required
+@jwt_required()
 def delete_user(user_id):
     try:
         result = db_users.delete_one({"_id": ObjectId(user_id)})
@@ -243,17 +233,16 @@ def delete_user(user_id):
 
 # Ruta para agregar un contacto
 @app.route('/contactos', methods=['POST'])
-@login_required
+@jwt_required()
 def agregar_contacto():
-    if not current_user.id:
-        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
-
+    current_user_id = get_jwt_identity()
+    
     try:
         id = db_contactos.insert_one({
             'nombre': request.json['nombre'],
             'telefono': request.json['telefono'],
             'email': request.json['email'],
-            'user_id': current_user.id  # Relaciona el contacto con el usuario logueado
+            'user_id': current_user_id  # Relaciona el contacto con el usuario logueado
         })
         return jsonify({"id": str(id.inserted_id)}), 201
     except Exception as e:
@@ -261,13 +250,11 @@ def agregar_contacto():
 
 # Ruta para buscar contactos por nombre, teléfono o correo electrónico
 @app.route('/contactos/buscar/<parametro>', methods=['GET'])
-@login_required
+@jwt_required()
 def buscar_contacto(parametro):
-    if not current_user.id:
-        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
     try:
         # Crear el filtro inicial para asegurarse de que solo se busque en los contactos del usuario logueado
-        filtro = {"user_id": current_user.id}
+        filtro = {"user_id": get_jwt_identity()}
 
         # Aplicar el parámetro de búsqueda a todos los campos relevantes: nombre, teléfono y email
         filtro["$or"] = [
@@ -281,7 +268,7 @@ def buscar_contacto(parametro):
 
         # Convertir ObjectId a string y preparar los datos para la respuesta
         for contacto in contactos:
-            contacto['_id'] = str(contacto['_id'])
+            serialize_doc(contacto)
 
         return jsonify(contactos), 200
 
@@ -290,10 +277,8 @@ def buscar_contacto(parametro):
 
 # Ruta para consultar un contacto por ID
 @app.route('/contacto/<string:id>', methods=['GET'])
-@login_required
-def obtener_contacto(id):
-    if not current_user.id:
-        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
+@jwt_required()
+def obtener_contacto(id):     
     try:
         contacto = db_contactos.find_one({'_id': ObjectId(id)})
         if contacto:
@@ -310,18 +295,15 @@ def obtener_contacto(id):
 
 # Ruta para obtener todos los contactos de un usuario logueado
 @app.route('/contactos', methods=['GET'])
-@login_required
+@jwt_required()
 def obtener_contactos_usuario():
-    if not current_user.id:
-        return jsonify({"Error":"Inicia sesión para que puedas ver tus contactos"}), 401
-
     try:
         # Obtener todos los contactos del usuario logueado
-        contactos = list(db_contactos.find({"user_id": current_user.id}))
+        contactos = list(db_contactos.find({"user_id": get_jwt_identity()}))
 
         # Convertir ObjectId a string para que sea serializable en JSON
         for contacto in contactos:
-            contacto['_id'] = str(contacto['_id'])
+            serialize_doc(contacto)
 
         # Retornar los contactos en formato JSON
         return jsonify(contactos), 200
@@ -331,12 +313,9 @@ def obtener_contactos_usuario():
 
 # Ruta para actualizar un contacto
 @app.route('/contacto/<string:id>', methods=['PUT'])
-@login_required
+@jwt_required()
 def actualizar_contacto(id):
-    if not current_user.id:
-        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
-    
-    contacto_existente = db_contactos.find_one({"_id": ObjectId(id), "user_id": current_user.id})
+    contacto_existente = db_contactos.find_one({"_id": ObjectId(id), "user_id": get_jwt_identity()})
     if not contacto_existente:
         return jsonify({"error": "No se encontró el contacto o no tienes permiso para actualizarlo"}), 404
 
@@ -353,10 +332,8 @@ def actualizar_contacto(id):
 
 # Ruta para eliminar un contacto
 @app.route('/contacto/<string:id>', methods=['DELETE'])
-@login_required
+@jwt_required()
 def eliminar_contacto(id):
-    if not current_user.id:
-        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
     result = db_contactos.delete_one({"_id": ObjectId(id)})
     if result.deleted_count > 0:
         return jsonify({'msg': 'Contacto eliminado'})
@@ -365,32 +342,28 @@ def eliminar_contacto(id):
 
 # Exportación de contactos en formato JSON
 @app.route('/contactos/export/json', methods=['GET'])
-@login_required
-def export_contactos_json():
-    if not current_user.id:
-        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
+@jwt_required()
+def export_contactos_json():      
     try:
         # Obtener los contactos del usuario logueado
-        contactos = list(db_contactos.find({"user_id": current_user.id}))
+        contactos = list(db_contactos.find({"user_id": get_jwt_identity()}))
         if not contactos:
             return jsonify({"message": "No tienes contactos para exportar"}), 204
 
         # Convertir ObjectId a string para que sea serializable en JSON
         for contacto in contactos:
-            contacto['_id'] = str(contacto['_id'])
+            serialize_doc(contacto)
         return jsonify(contactos), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 # Exportación de contactos en formato CSV
 @app.route('/contactos/export/csv', methods=['GET'])
-@login_required
+@jwt_required()
 def export_contactos_csv():
-    if not current_user.id:
-        return jsonify({"Error":"Inicia sesión para que puedas registrar tus contactos"})
     try:
         # Obtener los contactos del usuario logueado
-        contactos = list(db_contactos.find({"user_id": current_user.id}))
+        contactos = list(db_contactos.find({"user_id": get_jwt_identity()}))
         if not contactos:
             return jsonify({"message": "No tienes contactos para exportar"}), 204
         
@@ -407,7 +380,7 @@ def export_contactos_csv():
         # Retornar el archivo CSV
         return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=contactos.csv"})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"message": "No hay contactos para exportar"}), 204
 
 #________________________________________________________________________________________________________________________
 #                                                   ARRANQUE DE APLICACIÓN  
