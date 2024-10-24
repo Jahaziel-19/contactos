@@ -4,9 +4,12 @@ import { useAuth } from './AuthContext.jsx';
 import Leftbar from '../Leftbar/Leftbar.jsx';
 
 const PrivateRoute = ({ element }) => {
-    const { isAuthenticated } = useAuth();
-
-    if (!isAuthenticated) {
+    const {token} = useAuth();
+    useEffect(()=>{
+        console.log(token)
+    },[token])
+    if (!token) {
+        console.log('soy gay');
         return <Navigate to="/" replace />;
     }
 

@@ -1,15 +1,15 @@
 import { useState } from "react"
 import * as yup from 'yup';
-
+import { useAuth } from "../../../User/AuthContext";
 
 export default function AddContact(){
 const [animation,setAnimation] = useState({isAnimate:false,label:null});
 
   const [formValues, setFormValues] = useState({
-    name: '',
-    number: '',
+    nombre: '',
+    telefono: '',
     email: '',
-  })
+  });
 const [errors,setErrors] = useState({
 });
 const [check,setCheck] = useState(false);
@@ -20,11 +20,13 @@ const onAnimation = (obj) => {
 const firstLetter = (name) =>{
   return name.slice(0,1);
 }
+const {token} = useAuth();
+
 const schema = yup.object().shape({
-    name: yup.string()
+    nombre: yup.string()
     .matches(/^[a-zA-Z]*$/, 'Name cannot contain special characters or numbers.')
     .required('Name is required'),
-    number: yup.number()
+    telefono: yup.number()
     .typeError('Number must be a valid number.')
     .positive('The number must be positive.')
     .required('Number is required.'),
@@ -46,13 +48,15 @@ const handleChange = async e => {
     }
     console.log(errors);
     console.log(formValues);
-  }
+  };
+  
   const sendData = async json =>{
     try{
       const response = await fetch('http://localhost:5000/contactos',{
         method: 'POST',
         headers:{
           'Content-Type' : 'application/json',
+          'Authorization' : `Bearer ${token}`
         },
         body: JSON.stringify(json) 
       });
@@ -68,9 +72,8 @@ const handleChange = async e => {
   }
   const handleSubmit = e =>{
     e.preventDefault();
-    const {name,email,number} = errors;
-    console.log(name)
-    if(name!=='' || email !== '' || number !== ''){
+    const {nombre,email,telefono} = errors;
+    if(nombre!=='' || email !== '' || telefono !== ''){
         setErrors(values => ({...values,general : 'Fill well all the fields.'}));
         return;
     }
@@ -84,19 +87,19 @@ const handleChange = async e => {
         <div className="h-full w-full bg-custom-gray flex flex-col items-center justify-center">
           <div className="bg-custom-gray h-5/6 w-4/5 flex flex-col items-center justify-center">
             <div className="bg-gradient-to-r from-indigo-400 to-cyan-600 rounded-full w-32 h-32 flex items-center justify-center">
-              <p className="text-6xl text-white">{firstLetter(formValues.name)}</p>
+              <p className="text-6xl text-white">{firstLetter(formValues.nombre)}</p>
             </div>
             <div className="h-3/4 w-3/4 bg-custom-gray">
               <form className="gap-10 w-full h-full flex flex-col items-center justify-center">
                 <div id="name-box" className="grid ">
-                  <label htmlFor="name" className={animation.isAnimate && animation.label === 'name' ? 'animation-label text-indigo-400' : 'opacity-0'}>Name</label>
-                  <input onChange={handleChange} name="name" placeholder='Name' type="text" className="bg-custom-gray border h-10 rounded-3xl text-lg p-4   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"  onFocus={()=>{onAnimation({isAnimate:true,label:'name'})}} />
-                  {errors.name ? <div className="text-red-500 ">{errors.name}</div> : null}
+                  <label htmlFor="nombre" className={animation.isAnimate && animation.label === 'nombre' ? 'animation-label text-indigo-400' : 'opacity-0'}>Name</label>
+                  <input onChange={handleChange} name="nombre" placeholder='Name' type="text" className="bg-custom-gray border h-10 rounded-3xl text-lg p-4   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"  onFocus={()=>{onAnimation({isAnimate:true,label:'nombre'})}} />
+                  {errors.nombre ? <div className="text-red-500 ">{errors.nombre}</div> : null}
                 </div>
                 <div id="name-box" className="grid">
-                <label htmlFor="number" className={animation.isAnimate && animation.label === 'number' ? "animation-label text-indigo-400" : 'opacity-0'}>Number</label>
-                <input onChange={handleChange} name="number" placeholder='Number' type="number" className="bg-custom-gray border h-10 rounded-3xl text-lg p-4 focus:outline-none focus:ring-2  focus:ring-blue-500 focus:border-blue-500 " onFocus={()=>{onAnimation({isAnimate:true,label:'number'})}} />
-                {errors.number ? <div className="text-red-500 ">{errors.number}</div> : null}
+                <label htmlFor="telefono" className={animation.isAnimate && animation.label === 'telefono' ? "animation-label text-indigo-400" : 'opacity-0'}>Number</label>
+                <input onChange={handleChange} name="telefono" placeholder='Number' type="number" className="bg-custom-gray border h-10 rounded-3xl text-lg p-4 focus:outline-none focus:ring-2  focus:ring-blue-500 focus:border-blue-500 " onFocus={()=>{onAnimation({isAnimate:true,label:'telefono'})}} />
+                {errors.telefono ? <div className="text-red-500 ">{errors.telefono}</div> : null}
 
                 </div>
                 <div id="name-box" className="grid">

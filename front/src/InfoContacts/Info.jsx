@@ -1,53 +1,70 @@
-import { MdDelete } from "react-icons/md";
+import { MdDelete, MdFirstPage } from "react-icons/md";
 import { MdModeEdit } from "react-icons/md";
 import PropTypes from 'prop-types';
-import { useState } from "react";
+import { useAuth } from "../User/AuthContext";
 
-const Info = ({id}) => {
-    const [modify,setModify] = useState({value:null,type:null});
-    const handleDblClick = e =>{
-        const {title,textContent} = e.target;
-        setModify({value:textContent,type:title});
-    }
-    const handleChange = e =>{
-        const {value} = e.target;
-        setModify(values=>({...values,value:value}));
-        console.log(modify);
-    }
-    const handleBlur = e => {
-        setModify({value:null,type:null});
-    }
+const Info = ({ info, onEdit }) => {
+    const {token} = useAuth();
+    const capitalizeFirstLetter = word => {
+        const firstLetter = word.slice(0,1).toUpperCase(); 
+        const restOfWord = word.slice(1,word.length);
+        return firstLetter+restOfWord;
+    };
+    
+    const handleDelete = async () =>{
+        try{
+            const res = await fetch(`http://127.0.0.1:5000/contacto/${info._id}`,{
+                method: 'DELETE',
+                headers:{
+                    'Authorization' : `Bearer ${token}`
+                },
+            });
+
+            if(!res.ok){
+                console.log(await res.json());
+                console.log('Error:',res.status );
+            }
+            console.log(await res.json());
+        }catch(e){
+            console.log(e);
+        }
+        window.location.reload();
+    };
+
     return (
         <div className='bg-black h-full w-2/3 hide-scrollbar'>
-        <div className="w-full h-full bg-custom-gray flex justify-center items-start pt-20">
-            <div className="w-2/3 h-4/5 bg-custo,-gray flex flex-col justify-center items-center bottom-10 relative">
-                 <div className=" w-2/5 h-1/3 flex justify-center items-center bottom-10 relative">
-                     <div className=" w-32 h-32 rounded-full bg-gradient-to-r from-indigo-400 to-cyan-600"></div>
-                </div>
-                {modify.type==='number' ?
-                <input name="number" onBlur={handleBlur} onChange={handleChange} className="bg-custom-gray bottom-7 left-2 relative" value={modify.value}></input>
-                :
-                <p title="number" onDoubleClick={handleDblClick} className="text-black bottom-7 relative text-opacity-25" >{`numero de contacto ${id}`}</p>
-                }
-                <div className="bg-custom-gray w-5/6  bottom-4 relative">
-                    {modify.type === "name" ?
-                    <input name="name" type="text"  onBlur={handleBlur} onChange={handleChange} className="bg-custom-gray left-24 text-2xl relative rounded-3xl pl-4" value={modify.value}  />
-                    :
-                    <p title="name" onDoubleClick={handleDblClick} className="text-cyan-600  break-words text-center text-2xl" >{`nombre de contacto ${id}`}</p>}
-                </div>
-
-                <div className=" w-4/5 h-1/6 bg-custom-gray z-10 flex items-center justify-center gap-16 bottom-4 relative">
-                    <div className="rounded-full bg-gradient-to-r from-indigo-400 to-cyan-600 h-10 flex items-center justify-center w-10 hover:cursor-pointer" ><MdModeEdit color="white" className="w-2/3 h-2/3"></MdModeEdit></div>
-                    <div className="rounded-full bg-gradient-to-r from-indigo-400 to-cyan-600 h-10 w-10 flex items-center justify-center"><MdDelete color="white" className="w-2/3 h-2/3"></MdDelete></div>
+            <div className={`w-full h-full bg-custom-gray flex justify-center items-start pt-20`}>
+                <div className="w-2/3 h-4/5 bg-custom-gray flex flex-col justify-center items-center relative">
+                    <div className="w-2/5 h-1/3 flex justify-center items-center relative">
+                        <div className="w-32 h-32 rounded-full bg-gradient-to-r from-indigo-400 to-cyan-600 flex justify-center items-center text-white text-6xl">
+                            {info.nombre.charAt(0).toUpperCase()}
+                        </div>
+                    </div>
+                    <p title="number" className="text-black text-opacity-25">{info.telefono}</p>
+                    <div className="bg-custom-gray w-5/6">
+                        <p title="name" className="text-cyan-600 break-words text-center text-2xl">
+                            {capitalizeFirstLetter(info.nombre)}
+                        </p>
+                    </div>
+                    <div className="w-4/5 h-1/6 bg-custom-gray z-10 flex items-center justify-center gap-16 relative">
+                        <div className="rounded-full bg-gradient-to-r from-indigo-400 to-cyan-600 h-10 flex items-center justify-center w-10 hover:cursor-pointer" 
+                             onClick={onEdit}>
+                            <MdModeEdit color="white" className="w-2/3 h-2/3" />
+                        </div>
+                        <div onClick={handleDelete}
+                        className="rounded-full bg-gradient-to-r from-indigo-400 to-cyan-600 h-10 w-10 flex items-center justify-center hover:cursor-pointer">
+                            <MdDelete color="white" className="w-2/3 h-2/3" />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        </div>  
     );
 }
 
 Info.propTypes = {
-    id: PropTypes.number.isRequired, // Puedes ajustar el tipo si es necesario
-  };
+    info: PropTypes.object.isRequired,
+    onEdit: PropTypes.func.isRequired,
+};
 
 export default Info;

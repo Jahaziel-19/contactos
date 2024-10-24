@@ -3,47 +3,21 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [user, setUser] = useState(null);
-
-        const checkAuthStatus = async () => {
-            try {
-                const response = await fetch('http://127.0.0.1:5000/auth/check', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include'
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    setIsAuthenticated(result.authenticated);
-                    console.log('se hizo la verificacion.');
-                } else {
-                    setIsAuthenticated(false);
-                }
-            } catch (error) {
-                console.error('Error checking auth status:', error);
-                setIsAuthenticated(false);
-            }
-        };
+    const [modalExport,setModalExport] = useState(false);
+    const [token,setToken] = useState(()=>sessionStorage.getItem('token'));
 
 
-    const login = (userData) => {
-        setIsAuthenticated(true);
-        setUser(userData);
-        localStorage.setItem('isAuthenticated', 'true');
+    const login = (userData,token) => {
+        setToken(token);
     };
 
     const logout = () => {
-        setIsAuthenticated(false);
-        setUser(null);
-        localStorage.removeItem('isAuthenticated');
+        sessionStorage.removeItem('token');
+        setToken(null);
     };
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, login, logout, checkAuthStatus }}>
+        <AuthContext.Provider value={{   login, logout,token, modalExport,setModalExport }}>
             {children}
         </AuthContext.Provider>
     );
